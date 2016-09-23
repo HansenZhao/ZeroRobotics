@@ -1,0 +1,107 @@
+static const float MAXSPEED = 0.04f;
+static const float WARRINGFUEL = 1.0f;
+
+static const int STATE_SPS = 0;
+static const int STATE_ITEM = 1;
+
+#define statePos(state) (state)
+#define stateVel(state) (state + 3)
+#define stateAtt(state) (state + 6)
+#define stateRot(state) (state + 9)
+
+float SPSPosB[3];
+float SPSPosC[3];
+
+float curState[12];
+
+float curTarget[3];
+float vecBetween[3];
+float myZone[4];
+float curVelMag;
+float curDis;
+
+int GAMESTATE;
+
+void init(){
+    api.getMyZRState(curState);
+    GAMESTATE = STATE_SPS;
+    defineSPSLocation();
+    game.dropSPS();
+    setCurTarget(SPSPosB);
+    refreshCurState();
+}
+
+void loop(){
+    refreshCurState();
+    switch (GAMESTATE){
+        case STATE_SPS:
+            //DEBUG(("Game State SPS Placement"));
+            if(curDis > 0.08f){
+                //DEBUG(("Game State SPS Placement"));
+                setVel(vecBetween,0.04f);
+            }else if(curDis > 0.02f){
+                api.setPositionTarget(curTarget);
+            }else{
+                game.dropSPS();
+                if(game.getNumSPSHeld() > 0){
+                    setCurTarget(SPSPosC);
+                }else{
+                    if(game.getZone(myZone)){
+                        DEBUG(("My Zone In %.3f,%.3f,%.3f,%.3f",myZone[0],myZone[1],myZone[2],myZone[3]));
+                        GAMESTATE = STATE_ITEM;
+                    }
+                        
+                }
+            }
+        break;
+        case STATE_ITEM:
+            //DEBUG(("Game State item grab"));
+        break;
+    }
+    debugCurState();
+}
+
+void defineSPSLocation(){
+    if(statePos(curState)[1] > 0){
+        setVector3(-0.425f,0.075f,0.0f,SPSPosB);
+        setVector3(-0.5f,0.5f,0.0f,SPSPosC);
+    }else{
+        setVector3(0.425f,-0.075f,0.0f,SPSPosB);
+        setVector3(0.5f,-0.5f,0.0f,SPSPosC);
+    }
+}
+
+
+
+void setVector3(float x, float y, float z,float* newVec){
+    newVec[0] = x;
+    newVec[1] = y;
+    newVec[3] = z;
+}
+
+void refreshCurState(){
+    api.getMyZRState(curState);
+    mathVecSubtract(vecBetween,curTarget,statePos(curState),3);
+    curDis = mathVecMagnitude(vecBetween,2);
+    curVelMag = mathVecMagnitude(statePos(curState),2);
+}
+void setCurTarget(float T[3]){
+    curTarget[0] = T[0];
+    curTarget[1] = T[1];
+    curTarget[2] = 0.0f;
+    api.setPositionTarget(T);
+}
+
+void debugCurState(){
+    DEBUG(("Speed: %.3f|Distance: %.3f",curVelMag,curDis));
+    DEBUG(("DX: %.3f|DY: %.3f|DZ: %.3f",curTarget[0],curTarget[1],curTarget[2]));
+}
+
+void setVel(float vel[3],float scal){
+    mathVecNormalize(vel,3);
+    vel[0] = vel[0]*scal;
+    vel[1] = vel[1]*scal;
+    vel[2] = vel[2]*scal;
+    //DEBUG(("%f | %f | %f",vel[0],vel[1],vel[2]));
+    api.setVelocityTarget(vel);
+}
