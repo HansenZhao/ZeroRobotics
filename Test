@@ -1,52 +1,51 @@
-static const float MAXSPEED = 0.04f;
-static const float WARRINGFUEL = 1.0f;
+static const float MAXSPEED = 0.04f;      //define Max speed
+static const float WARRINGFUEL = 1.0f;    //define for lack of fuel value untest
 
-static const int STATE_SPS = 0;
-static const int STATE_ITEM = 1;
+static const int STATE_SPS = 0;           // game state to place SPS
+static const int STATE_ITEM = 1;          // game state for grab item
 
-#define statePos(state) (state)
-#define stateVel(state) (state + 3)
-#define stateAtt(state) (state + 6)
-#define stateRot(state) (state + 9)
+#define statePos(state) (state)           //Macro for get position value
+#define stateVel(state) (state + 3)       //Macro for get velocity value
+#define stateAtt(state) (state + 6)       //Macro for get attitude value
+#define stateRot(state) (state + 9)       //Macro for get rotation value
 
-float SPSPosB[3];
-float SPSPosC[3];
+float SPSPosB[3];                         //position for second SPS
+float SPSPosC[3];                         //position for third SPS
 
-float curState[12];
+float curState[12];                       //store current State info
 
-float curTarget[3];
-float vecBetween[3];
-float myZone[4];
-float curVelMag;
-float curDis;
+float curTarget[3];                       //store current target pos
+float vecBetween[3];                      //store vector between current pos to target pos
+float myZone[4];                          //store info for item zone
+float curVelMag;                          //store current velocity magnitude
+float curDis;                             //store distance between ZR to target
 
-int GAMESTATE;
+int GAMESTATE;                            //store current game state
 
 void init(){
-    api.getMyZRState(curState);
-    GAMESTATE = STATE_SPS;
-    defineSPSLocation();
-    game.dropSPS();
-    setCurTarget(SPSPosB);
-    refreshCurState();
+    api.getMyZRState(curState);           //get init state
+    GAMESTATE = STATE_SPS;                //set init game state
+    defineSPSLocation();                  //define SPS location by init postion of ZR
+    game.dropSPS();                       //drop the first SPS at the very beginning
+    setCurTarget(SPSPosB);                //set next target to B
+    refreshCurState();                    //refresh state info
 }
 
 void loop(){
-    refreshCurState();
-    switch (GAMESTATE){
+    refreshCurState();                     //refresh state info every frame
+    switch (GAMESTATE){                    //check current state
         case STATE_SPS:
             //DEBUG(("Game State SPS Placement"));
-            if(curDis > 0.08f){
-                //DEBUG(("Game State SPS Placement"));
-                setVel(vecBetween,0.04f);
+            if(curDis > 0.08f){            
+                setVel(vecBetween,0.04f);   //while distance still far,set velocity to 0.04
             }else if(curDis > 0.02f){
-                api.setPositionTarget(curTarget);
+                api.setPositionTarget(curTarget);   //slow down while approaching
             }else{
-                game.dropSPS();
-                if(game.getNumSPSHeld() > 0){
-                    setCurTarget(SPSPosC);
+                game.dropSPS();             //drop SPS if already reached target
+                if(game.getNumSPSHeld() > 0){       //check if all SPS has been dropped
+                    setCurTarget(SPSPosC);          //if not go next target place
                 }else{
-                    if(game.getZone(myZone)){
+                    if(game.getZone(myZone)){       //if item zone info avaliable, set game state to item grab
                         DEBUG(("My Zone In %.3f,%.3f,%.3f,%.3f",myZone[0],myZone[1],myZone[2],myZone[3]));
                         GAMESTATE = STATE_ITEM;
                     }
@@ -72,19 +71,22 @@ void defineSPSLocation(){
 }
 
 
-
+// easy way to init a new vector or set value
 void setVector3(float x, float y, float z,float* newVec){
     newVec[0] = x;
     newVec[1] = y;
     newVec[3] = z;
 }
 
+// refresh ZR state and current distance / current velocity
 void refreshCurState(){
     api.getMyZRState(curState);
     mathVecSubtract(vecBetween,curTarget,statePos(curState),3);
     curDis = mathVecMagnitude(vecBetween,2);
     curVelMag = mathVecMagnitude(statePos(curState),2);
 }
+
+// set current target
 void setCurTarget(float T[3]){
     curTarget[0] = T[0];
     curTarget[1] = T[1];
@@ -92,11 +94,13 @@ void setCurTarget(float T[3]){
     api.setPositionTarget(T);
 }
 
+// print speed / distance / target position
 void debugCurState(){
     DEBUG(("Speed: %.3f|Distance: %.3f",curVelMag,curDis));
     DEBUG(("DX: %.3f|DY: %.3f|DZ: %.3f",curTarget[0],curTarget[1],curTarget[2]));
 }
 
+// set velocity vector both in direction and scalar
 void setVel(float vel[3],float scal){
     mathVecNormalize(vel,3);
     vel[0] = vel[0]*scal;
